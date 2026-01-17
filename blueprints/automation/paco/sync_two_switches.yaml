@@ -1,48 +1,40 @@
 blueprint:
-  name: Sync two switch entities (PacoCT)
+  name: Sync two switches (PacoCT)
   description: >
-    Mirror two switches by updating the status of the other linked switch
-    to match the triggered switch state
-  version: "1.0.0"
-  source: https://github.com/PacoCT/homeassistant-blueprints/blob/main/blueprints/automation/paco/sync_two_switches.yaml
+    Keeps two switch entities synchronized bidirectionally.
+    When one switch changes state, the other is updated to match,
+    while preventing feedback loops.
   domain: automation
+  source_url: https://github.com/PacoCT/homeassistant-blueprints/blob/main/blueprints/automation/paco/sync_two_switches.yaml
 
-  input:
-    switch_object1:
-      name: Switch 1
-      selector:
-        entity:
-          domain: switch
-    switch_object2:
-      name: Switch 2
-      selector:
-        entity:
-          domain: switch
+input:
+  switch_object1:
+    name: Switch 1
+    selector:
+      entity:
+        domain: switch
+
+  switch_object2:
+    name: Switch 2
+    selector:
+      entity:
+        domain: switch
+
+variables:
+  sw1: !input switch_object1
+  sw2: !input switch_object2
 
 trigger:
   - platform: state
     entity_id: !input switch_object1
-    from: 'on'
-    to: 'off'
 
   - platform: state
     entity_id: !input switch_object2
-    from: 'on'
-    to: 'off'
-
-  - platform: state
-    entity_id: !input switch_object1
-    from: 'off'
-    to: 'on'
-
-  - platform: state
-    entity_id: !input switch_object2
-    from: 'off'
-    to: 'on'
 
 condition:
   - condition: template
-    value_template: "{{ trigger.to_state.context.parent_id is none }}"
+    value_template: >
+      {{ trigger.to_state.context.parent_id is none }}
 
 action:
   - choose:
@@ -53,7 +45,7 @@ action:
           - service: switch.turn_on
             target:
               entity_id: >
-                {{ switch_object2 if trigger.entity_id == switch_object1 else switch_object1 }}
+                {{ sw2 if trigger.entity_id == sw1 else sw1 }}
 
       - conditions:
           - condition: template
@@ -62,4 +54,6 @@ action:
           - service: switch.turn_off
             target:
               entity_id: >
-                {{ switch_object2 if trigger.entity_id == switch_object1 else switch_object1 }}
+                {{ sw2 if trigger.entity_id == sw1 else sw1 }}
+
+mode: parallel
