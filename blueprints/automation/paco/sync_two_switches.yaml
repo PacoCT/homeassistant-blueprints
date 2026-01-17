@@ -1,9 +1,9 @@
 blueprint:
-  name: Sync two switches (PacoCT)
+  name: Sync two switches (PacoCT) — improved
   description: >
     Keeps two switch entities synchronized bidirectionally.
     When one switch changes state, the other is updated to match,
-    while preventing feedback loops.
+    while preventing feedback loops and unnecessary service calls.
   domain: automation
   source_url: https://github.com/PacoCT/homeassistant-blueprints/blob/main/blueprints/automation/paco/sync_two_switches.yaml
 
@@ -32,28 +32,39 @@ trigger:
     entity_id: !input switch_object2
 
 condition:
+  # Only proceed when we have a valid to_state and the change was not triggered by a service call
   - condition: template
     value_template: >
-      {{ trigger.to_state.context.parent_id is none }}
+      {{ trigger.to_state is not none and trigger.to_state.context.parent_id is none }}
 
 action:
   - choose:
+      # Turn the other switch ON when this one changes to 'on', but only if the other is not already 'on'
       - conditions:
           - condition: template
-            value_template: "{{ trigger.to_state.state == 'on' }}"
+            value_template: >
+              {% set tgt = sw2 if trigger.entity_id == sw1 else sw1 %}
+              {{ trigger.to_state is not none
+                 and trigger.to_state.state == 'on'
+                 and (states(tgt) != 'on') }}
         sequence:
           - service: switch.turn_on
             target:
               entity_id: >
-                {{ sw2 if trigger.entity_id == sw1 else sw1 }}
+                {{ sw2 if (trigger.entity_id == sw1) else sw1 }}
 
+      # Turn the other switch OFF when this one changes to 'off', but only if the other is not already 'off'
       - conditions:
           - condition: template
-            value_template: "{{ trigger.to_state.state == 'off' }}"
+            value_template: >
+              {% set tgt = sw2 if trigger.entity_id == sw1 else sw1 %}
+              {{ trigger.to_state is not none
+                 and trigger.to_state.state == 'off'
+                 and (states(tgt) != 'off') }}
         sequence:
           - service: switch.turn_off
             target:
               entity_id: >
-                {{ sw2 if trigger.entity_id == sw1 else sw1 }}
+                {{ sw2 if (trigger.entity_id == sw1) else sw1 }}
 
 mode: parallel
