@@ -1,0 +1,65 @@
+blueprint:
+  name: Sync two switch entities (PacoCT)
+  description: >
+    Mirror two switches by updating the status of the other linked switch
+    to match the triggered switch state
+  version: "1.0.0"
+  source: https://github.com/PacoCT/homeassistant-blueprints/blob/main/blueprints/automation/paco/sync_two_switches.yaml
+  domain: automation
+
+  input:
+    switch_object1:
+      name: Switch 1
+      selector:
+        entity:
+          domain: switch
+    switch_object2:
+      name: Switch 2
+      selector:
+        entity:
+          domain: switch
+
+trigger:
+  - platform: state
+    entity_id: !input switch_object1
+    from: 'on'
+    to: 'off'
+
+  - platform: state
+    entity_id: !input switch_object2
+    from: 'on'
+    to: 'off'
+
+  - platform: state
+    entity_id: !input switch_object1
+    from: 'off'
+    to: 'on'
+
+  - platform: state
+    entity_id: !input switch_object2
+    from: 'off'
+    to: 'on'
+
+condition:
+  - condition: template
+    value_template: "{{ trigger.to_state.context.parent_id is none }}"
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'on' }}"
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: >
+                {{ switch_object2 if trigger.entity_id == switch_object1 else switch_object1 }}
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'off' }}"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: >
+                {{ switch_object2 if trigger.entity_id == switch_object1 else switch_object1 }}
